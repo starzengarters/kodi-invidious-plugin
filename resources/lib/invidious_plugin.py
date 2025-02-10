@@ -157,7 +157,7 @@ class InvidiousPlugin:
         xbmcplugin.endOfDirectory(self.addon_handle)
 
     def display_search_results(
-        self, results: Iterator[invidious_api.InvidiousApiResponseType]
+        self, results: Iterator[invidious_api.InvidiousApiSearchResponseType]
     ):
         # FIXME Add pagination support?
         for result in results:
@@ -263,11 +263,11 @@ class InvidiousPlugin:
 
         listitem = None
         # check if playback via MPEG-DASH is possible
-        if not self.disable_dash and "dashUrl" in video_info:
+        if not self.disable_dash and video_info.dash_url:
             is_helper = inputstreamhelper.Helper("mpd")
 
             if is_helper.check_inputstream():
-                url = video_info["dashUrl"]
+                url = video_info.dash_url
                 xbmc.log(f"invidious using mpeg-dash stream {url}.", xbmc.LOGDEBUG)
                 listitem = xbmcgui.ListItem(path=url)
                 listitem.setProperty("inputstream", is_helper.inputstream_addon)
@@ -280,7 +280,7 @@ class InvidiousPlugin:
         # as a fallback, we use the last oldschool stream, as it is
         # often the best quality.
         if listitem is None:
-            url = video_info["formatStreams"][-1]["url"]
+            url = video_info.stream_urls[-1]
             xbmc.log(
                 f"invidious playback failing back to non-dash stream {url}!",
                 xbmc.LOGINFO,
@@ -288,21 +288,24 @@ class InvidiousPlugin:
             # it's pretty complicated to play a video by its URL in Kodi...
             listitem = xbmcgui.ListItem(path=url)
 
-        datestr = datetime.utcfromtimestamp(video_info["published"]).date().isoformat()
+        datestr = datetime.utcfromtimestamp(video_info.published).date().isoformat()
         info_tag = ListItemInfoTag(listitem, "video")
-        xbmc.log(f"author: {video_info["author"]}", xbmc.LOGERROR)
         info_tag.set_info(
             {
-                "title": video_info["title"],
                 "mediatype": "video",
-                "plot": video_info["description"],
-                "credits": [video_info["author"]],
+                "title": video_info.heading,
+                "plot": video_info.description,
+                "credits": [video_info.channel],
                 "date": datestr,
                 "dateadded": datestr,
                 "premiered": datestr,
-                "duration": str(video_info["lengthSeconds"]),
+                "duration": str(video_info.duration),
             }
         )
+        if video_info.captions:
+            listitem.setSubtitles(
+                [self.api_client.get_caption_url(c) for c in video_info.captions]
+            )
 
         if self.addon.getSettingBool("mark_items_watched") and self.api_client.username:
             try:

@@ -6,9 +6,11 @@ import xbmc
 import xbmcaddon
 
 from .types import (
+    Caption,
     ChannelSearchResult,
-    InvidiousApiResponseType,
+    InvidiousApiSearchResponseType,
     PlaylistSearchResult,
+    VideoInfoResult,
     VideoSearchResult,
 )
 
@@ -79,7 +81,7 @@ class InvidiousAPIClient:
 
     def _parse_list_response(
         self, response: requests.models.Response
-    ) -> Iterator[InvidiousApiResponseType]:
+    ) -> Iterator[InvidiousApiSearchResponseType]:
         if not response or not response.content:
             raise StopIteration()
         data = response.json()
@@ -107,6 +109,9 @@ class InvidiousAPIClient:
                         xbmc.LOGWARNING,
                     )
 
+    def get_caption_url(self, caption: Caption) -> str:
+        return f"{self.instance_url}{caption.url}"
+
     def search(self, *terms):
         params = {
             "q": " ".join(terms),
@@ -117,10 +122,10 @@ class InvidiousAPIClient:
 
         return self._parse_list_response(response)
 
-    def fetch_video_information(self, video_id):
+    def fetch_video_information(self, video_id) -> VideoInfoResult:
         response = self._make_get_request(f"videos/{video_id}")
-
-        return response.json()
+        data = response.json()
+        return VideoInfoResult.from_response(data)
 
     def fetch_channel_list(self, channel_id):
         response = self._make_get_request(f"channels/{channel_id}/videos")

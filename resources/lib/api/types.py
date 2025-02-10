@@ -1,4 +1,6 @@
+import dataclasses
 from dataclasses import dataclass
+from typing import Self
 
 
 @dataclass
@@ -32,7 +34,7 @@ class VideoSearchResult:
         )["url"]
 
     @classmethod
-    def from_response(cls, item: dict):
+    def from_response(cls, item: dict) -> Self:
         thumbnail_url = cls.extract_thumbnail_url(item["videoThumbnails"])
         return cls(
             id=item["videoId"],
@@ -44,6 +46,24 @@ class VideoSearchResult:
             view_count=item.get("viewCount", -1),  # Missing for playlists.
             published=item.get("published", 0),
             duration=item["lengthSeconds"],
+        )
+
+
+@dataclass
+class VideoInfoResult(VideoSearchResult):
+    dash_url: str | None
+    stream_urls: list[str]
+    captions: list[Caption]
+
+    @classmethod
+    def from_response(cls, item: dict) -> Self:
+        base_info = VideoSearchResult.from_response(item)
+
+        return cls(
+            **dataclasses.asdict(base_info),
+            dash_url=item.get("dashUrl"),
+            stream_urls=[s["url"] for s in item["formatStreams"]],
+            captions=[Caption.from_response(c) for c in item["captions"]],
         )
 
 
@@ -105,6 +125,6 @@ class PlaylistSearchResult:
         )
 
 
-InvidiousApiResponseType = (
+InvidiousApiSearchResponseType = (
     VideoSearchResult | ChannelSearchResult | PlaylistSearchResult
 )
