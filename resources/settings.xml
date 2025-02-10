@@ -9,6 +9,7 @@
         <setting label="30018" type="bool" id="show_instance_trending" default="true"/>
         <setting label="30019" type="bool" id="show_instance_popular" default="true"/>
         <setting label="30022" type="bool" id="search_history" default="true"/>
+        <setting label="30023" type="bool" id="download_subs" default="false"/>
         <setting label="30009" type="bool" id="disable_dash" default="false"/>
     </category>
 </settings>

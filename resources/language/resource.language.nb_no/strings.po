@@ -108,3 +108,12 @@ msgstr ""
 msgctxt "#30021"
 msgid "Trending"
 msgstr ""
+
+msgctxt "#30022"
+msgid "Save search history"
+msgstr ""
+
+#, fuzzy
+msgctxt "#30023"
+msgid "Download captions when available"
+msgstr "Ingen beskrivelse tilgjengelig"

@@ -112,6 +112,11 @@ class InvidiousAPIClient:
     def get_caption_url(self, caption: Caption) -> str:
         return f"{self.instance_url}{caption.url}"
 
+    def fetch_subtitles(self, caption: Caption) -> bytes:
+        response = self.session.get(f"{self.instance_url}{caption.url}")
+        response.raise_for_status()
+        return response.content
+
     def search(self, *terms):
         params = {
             "q": " ".join(terms),

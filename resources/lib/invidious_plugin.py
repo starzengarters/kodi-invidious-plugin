@@ -57,6 +57,7 @@ class SearchHistory:
 class InvidiousPlugin:
 
     INSTANCESURL = "https://api.invidious.io/instances.json?sort_by=type,health"
+    TMP_PATH = "special://temp/plugin.video.invidious/"
 
     addon_handle: int
     api_client: invidious_api.InvidiousAPIClient
@@ -67,6 +68,7 @@ class InvidiousPlugin:
     search_history: SearchHistory | None
     show_instance_popular: bool
     show_instance_trending: bool
+    download_subs: bool
 
     def __init__(self, base_url: str, addon_handle: int, args: dict[str, Any]):
         self.base_url = base_url
@@ -75,10 +77,14 @@ class InvidiousPlugin:
         self.args = args
         path = xbmcvfs.translatePath(self.addon.getAddonInfo("profile"))
         settings = self.addon.getSettings()
+        self.download_subs = settings.getBool("download_subs")
         self.disable_dash = settings.getBool("disable_dash")
         self.show_instance_trending = settings.getBool("show_instance_trending")
         self.show_instance_popular = settings.getBool("show_instance_popular")
         self.auto_instance = settings.getBool("auto_instance")
+
+        if self.download_subs:
+            xbmcvfs.mkdirs(f"{InvidiousPlugin.TMP_PATH}/subs")
 
         if settings.getBool("search_history"):
             self.search_history = SearchHistory(path + "search-history.json", 20)
@@ -302,10 +308,24 @@ class InvidiousPlugin:
                 "duration": str(video_info.duration),
             }
         )
+        # Kodi does not seems to support setting any metadata on captions aside from the filename.
+        # https://forum.kodi.tv/showthread.php?tid=289090
         if video_info.captions:
-            listitem.setSubtitles(
-                [self.api_client.get_caption_url(c) for c in video_info.captions]
-            )
+            if self.download_subs:
+                sub_files = []
+                for caption in video_info.captions:
+                    filename = (
+                        f"{self.TMP_PATH}/subs/{video_info.id}.{caption.label}.vtt"
+                    )
+                    with xbmcvfs.File(filename, "w") as f:
+                        f.write(self.api_client.fetch_subtitles(caption))
+                    sub_files.append(filename)
+                listitem.setSubtitles(sub_files)
+
+            else:
+                listitem.setSubtitles(
+                    [self.api_client.get_caption_url(c) for c in video_info.captions]
+                )
 
         if self.addon.getSettingBool("mark_items_watched") and self.api_client.username:
             try:
