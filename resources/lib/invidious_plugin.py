@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import Any, Iterator
 from urllib.parse import parse_qs, urlencode
 
+import api.invidious_api as invidious_api
 import inputstreamhelper
-import invidious_api
 import requests
 import xbmc
 import xbmcaddon
@@ -58,16 +58,32 @@ class InvidiousPlugin:
 
     INSTANCESURL = "https://api.invidious.io/instances.json?sort_by=type,health"
 
+    addon_handle: int
+    api_client: invidious_api.InvidiousAPIClient
+    args: dict
+    auto_instance: bool
+    base_url: str
+    disable_dash: bool
+    search_history: SearchHistory | None
+    show_instance_popular: bool
+    show_instance_trending: bool
+
     def __init__(self, base_url: str, addon_handle: int, args: dict[str, Any]):
         self.base_url = base_url
         self.addon_handle = addon_handle
         self.addon = xbmcaddon.Addon()
         self.args = args
         path = xbmcvfs.translatePath(self.addon.getAddonInfo("profile"))
-        self.search_history = SearchHistory(path + "search-history.json", 20)
-
         settings = self.addon.getSettings()
+        self.disable_dash = settings.getBool("disable_dash")
+        self.show_instance_trending = settings.getBool("show_instance_trending")
+        self.show_instance_popular = settings.getBool("show_instance_popular")
         self.auto_instance = settings.getBool("auto_instance")
+
+        if settings.getBool("search_history"):
+            self.search_history = SearchHistory(path + "search-history.json", 20)
+        else:
+            self.search_history = None
         instance_auth = None
         if self.auto_instance and not settings.getString("instance_url"):
             instance_url = self.instance_autodetect()
@@ -84,9 +100,6 @@ class InvidiousPlugin:
         self.api_client = invidious_api.InvidiousAPIClient(
             instance_url, auth=instance_auth
         )
-        self.disable_dash = settings.getBool("disable_dash")
-        self.show_instance_trending = settings.getBool("show_instance_trending")
-        self.show_instance_popular = settings.getBool("show_instance_popular")
 
     def instance_autodetect(self):
         xbmc.log("invidious picking instance automatically.", xbmc.LOGINFO)
@@ -162,38 +175,50 @@ class InvidiousPlugin:
             # seriously, Kodi? come on...
             # https://forum.kodi.tv/showthread.php?tid=173986&pid=1519987#pid1519987
             list_item.setProperty("IsPlayable", "true")
-            if isinstance(result, invidious_api.VideoSearchResult):
-                datestr = datetime.utcfromtimestamp(result.published).date().isoformat()
+            match result:
+                case invidious_api.VideoSearchResult():
+                    datestr = (
+                        datetime.utcfromtimestamp(result.published).date().isoformat()
+                    )
 
-                info_tag = ListItemInfoTag(list_item, "video")
-                info_tag.set_info(
-                    {
-                        "title": result.heading,
-                        "mediatype": "video",
-                        "plot": result.description,
-                        "credits": result.author,
-                        "date": datestr,
-                        "dateadded": datestr,
-                        "premiered": datestr,
-                        "duration": result.duration,
-                    }
-                )
+                    info_tag = ListItemInfoTag(list_item, "video")
+                    info_tag.set_info(
+                        {
+                            "title": result.heading,
+                            "mediatype": "video",
+                            "plot": result.description
+                            or self.addon.getLocalizedString(30000),
+                            "credits": [result.channel],
+                            "date": datestr,
+                            "dateadded": datestr,
+                            "premiered": datestr,
+                            "duration": result.duration,
+                        }
+                    )
 
-                url = self.build_url("play_video", video_id=result.id)
-                self.add_directory_item(url=url, listitem=list_item)
-            elif isinstance(result, invidious_api.ChannelSearchResult):
-                url = self.build_url("view_channel", channel_id=result.id)
-                info_tag = ListItemInfoTag(list_item, "video")
-                info_tag.set_info(
-                    {
-                        "title": result.heading,
-                        "plot": result.description,
-                    }
-                )
-                self.add_directory_item(url=url, listitem=list_item, isFolder=True)
-            elif isinstance(result, invidious_api.PlaylistSearchResult):
-                url = self.build_url("view_playlist", playlist_id=result.id)
-                self.add_directory_item(url=url, listitem=list_item, isFolder=True)
+                    url = self.build_url("play_video", video_id=result.id)
+                    self.add_directory_item(url=url, listitem=list_item)
+                case invidious_api.ChannelSearchResult():
+                    url = self.build_url("view_channel", channel_id=result.id)
+                    info_tag = ListItemInfoTag(list_item, "video")
+                    info_tag.set_info(
+                        {
+                            "title": result.heading,
+                            "plot": result.description
+                            or self.addon.getLocalizedString(30000),
+                        }
+                    )
+                    self.add_directory_item(url=url, listitem=list_item, isFolder=True)
+                case invidious_api.PlaylistSearchResult():
+                    info_tag = ListItemInfoTag(list_item, "video")
+                    info_tag.set_info(
+                        {
+                            "title": result.heading,
+                            "plot": result.description,
+                        }
+                    )
+                    url = self.build_url("view_playlist", playlist_id=result.id)
+                    self.add_directory_item(url=url, listitem=list_item, isFolder=True)
 
         self.end_of_directory()
 
@@ -265,12 +290,13 @@ class InvidiousPlugin:
 
         datestr = datetime.utcfromtimestamp(video_info["published"]).date().isoformat()
         info_tag = ListItemInfoTag(listitem, "video")
+        xbmc.log(f"author: {video_info["author"]}", xbmc.LOGERROR)
         info_tag.set_info(
             {
                 "title": video_info["title"],
                 "mediatype": "video",
                 "plot": video_info["description"],
-                "credits": video_info["author"],
+                "credits": [video_info["author"]],
                 "date": datestr,
                 "dateadded": datestr,
                 "premiered": datestr,
@@ -332,13 +358,14 @@ class InvidiousPlugin:
         # New search on top.
         add_list_item(self.addon.getLocalizedString(30002), "new_search")
 
-        for query in self.search_history.queries():
-            url = self.build_url("search", q=query)
-            listitem = xbmcgui.ListItem(
-                query,
-                path=query,
-            )
-            self.add_directory_item(url=url, listitem=listitem, isFolder=True)
+        if self.search_history:
+            for query in self.search_history.queries():
+                url = self.build_url("search", q=query)
+                listitem = xbmcgui.ListItem(
+                    query,
+                    path=query,
+                )
+                self.add_directory_item(url=url, listitem=listitem, isFolder=True)
 
         self.end_of_directory()
 
@@ -360,38 +387,33 @@ class InvidiousPlugin:
 
         # for the sake of simplicity, we just handle HTTP request errors here centrally
         try:
-            if not action:
-                self.display_main_menu()
-
-            elif action == "search_menu":
-                self.display_search_submenu()
-
-            elif action == "new_search":
-                self.display_new_search()
-
-            elif action == "search":
-                self.display_search_result(self.args["q"][0])
-
-            elif action == "play_video":
-                self.play_video(self.args["video_id"][0])
-
-            elif action == "view_channel":
-                self.display_channel_list(self.args["channel_id"][0])
-
-            elif action == "view_playlist":
-                self.display_playlist_list(self.args["playlist_id"][0])
-
-            elif action == "user_feed":
-                self.display_search_results(self.api_client.fetch_feed())
-
-            elif action == "user_subscriptions":
-                self.display_search_results(self.api_client.fetch_subscribed_channels())
-
-            elif action in ("trending", "popular"):
-                self.display_search_results(self.api_client.fetch_special_list(action))
-
-            else:
-                raise RuntimeError("unknown action " + action)
+            match action:
+                case None:
+                    self.display_main_menu()
+                case "search_menu":
+                    self.display_search_submenu()
+                case "new_search":
+                    self.display_new_search()
+                case "search":
+                    self.display_search_result(self.args["q"][0])
+                case "play_video":
+                    self.play_video(self.args["video_id"][0])
+                case "view_channel":
+                    self.display_channel_list(self.args["channel_id"][0])
+                case "view_playlist":
+                    self.display_playlist_list(self.args["playlist_id"][0])
+                case "user_feed":
+                    self.display_search_results(self.api_client.fetch_feed())
+                case "user_subscriptions":
+                    self.display_search_results(
+                        self.api_client.fetch_subscribed_channels()
+                    )
+                case ("trending", "popular"):
+                    self.display_search_results(
+                        self.api_client.fetch_special_list(action)
+                    )
+                case _:
+                    raise RuntimeError("unknown action " + action)
 
         except requests.HTTPError as e:
             xbmc.log(

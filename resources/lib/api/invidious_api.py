@@ -1,56 +1,16 @@
 import time
-from collections import namedtuple
-from typing import Iterator, Union
+from typing import Iterator
 
 import requests
 import xbmc
 import xbmcaddon
 
-VideoSearchResult = namedtuple(
-    "VideoSearchResult",
-    [
-        "type",
-        "id",
-        "thumbnail_url",
-        "heading",
-        "author",
-        "description",
-        "view_count",
-        "published",
-        "duration",
-    ],
+from .types import (
+    ChannelSearchResult,
+    InvidiousApiResponseType,
+    PlaylistSearchResult,
+    VideoSearchResult,
 )
-
-ChannelSearchResult = namedtuple(
-    "ChannelSearchResult",
-    [
-        "type",
-        "id",
-        "thumbnail_url",
-        "heading",
-        "description",
-        "verified",
-        "sub_count",
-    ],
-)
-
-PlaylistSearchResult = namedtuple(
-    "PlaylistSearchResult",
-    [
-        "type",
-        "id",
-        "thumbnail_url",
-        "heading",
-        "channel",
-        "channel_id",
-        "verified",
-        "video_count",
-    ],
-)
-
-InvidiousApiResponseType = Union[
-    VideoSearchResult, ChannelSearchResult, PlaylistSearchResult
-]
 
 
 class InvidiousAPIClient:
@@ -69,7 +29,6 @@ class InvidiousAPIClient:
         if auth:
             self.username = auth["username"]
             self.password = auth["password"]
-        self.addon = xbmcaddon.Addon()
 
     @property
     def base_url(self) -> str:
@@ -132,67 +91,21 @@ class InvidiousAPIClient:
 
         for item in data:
             # Playlist videos do not have the 'type' attribute
-            if "type" not in item or item["type"] in ["video", "shortVideo"]:
-                # Skip videos with no or negative duration.
-                if not item["lengthSeconds"] > 0:
-                    continue
-                for thumb in item["videoThumbnails"]:
+            match item.get("type"):
+                case "video" | "shortVideo" | None:
+                    yield VideoSearchResult.from_response(item)
 
-                    # high appears to be ~480x360, which is a
-                    # reasonable trade-off works well on 1080p.
-                    if thumb["quality"] == "high":
-                        thumbnail_url = thumb["url"]
-                        break
+                case "channel":
+                    yield ChannelSearchResult.from_response(item)
 
-                # as a fallback, we just use the last one in the list
-                # (which is usually the lowest quality).
-                else:
-                    thumbnail_url = item["videoThumbnails"][-1]["url"]
-                yield VideoSearchResult(
-                    "video",
-                    item["videoId"],
-                    thumbnail_url,
-                    item["title"],
-                    item["author"],
-                    item.get("description", self.addon.getLocalizedString(30000)),
-                    item.get("viewCount", -1),  # Missing for playlists.
-                    item.get("published", 0),  # Missing for playlists.
-                    item["lengthSeconds"],
-                )
-            elif item["type"] == "channel":
-                # Grab the highest resolution avatar image
-                # Usually isn't more than 512x512
-                thumbnail = sorted(
-                    item["authorThumbnails"],
-                    key=lambda thumb: thumb["height"],
-                    reverse=True,
-                )[0]
+                case "playlist":
+                    yield PlaylistSearchResult.from_response(item)
 
-                yield ChannelSearchResult(
-                    "channel",
-                    item["authorId"],
-                    "https:" + thumbnail["url"],
-                    item["author"],
-                    item["description"],
-                    item["authorVerified"],
-                    item["subCount"],
-                )
-            elif item["type"] == "playlist":
-                yield PlaylistSearchResult(
-                    "playlist",
-                    item["playlistId"],
-                    item["playlistThumbnail"],
-                    item["title"],
-                    item["author"],
-                    item["authorId"],
-                    item["authorVerified"],
-                    item["videoCount"],
-                )
-            else:
-                xbmc.log(
-                    f'invidious received search result item with unknown response type {item["type"]}.',
-                    xbmc.LOGWARNING,
-                )
+                case _:
+                    xbmc.log(
+                        f'invidious received search result item with unknown response type {item["type"]}.',
+                        xbmc.LOGWARNING,
+                    )
 
     def search(self, *terms):
         params = {
@@ -246,21 +159,7 @@ class InvidiousAPIClient:
         response = self._make_get_request(f"channels/{channel_id}")
 
         data = response.json()
-        thumbnail = sorted(
-            data["authorThumbnails"],
-            key=lambda thumb: thumb["height"],
-            reverse=True,
-        )[0]
-
-        return ChannelSearchResult(
-            "channel",
-            data["authorId"],
-            thumbnail["url"],
-            data["author"],
-            data["description"],
-            data["authorVerified"],
-            data["subCount"],
-        )
+        return ChannelSearchResult.from_response(data)
 
     def subscribe(self, channel_id: str) -> None:
         if not self.authenticated:
