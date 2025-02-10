@@ -285,7 +285,6 @@ class InvidiousPlugin:
                 xbmc.log(f"invidious using mpeg-dash stream {url}.", xbmc.LOGDEBUG)
                 listitem = xbmcgui.ListItem(path=url)
                 listitem.setProperty("inputstream", is_helper.inputstream_addon)
-                listitem.setProperty("inputstream.adaptive.manifest_type", "mpd")
             else:
                 xbmc.log(
                     "invidious mpeg-dash input helper not available.", xbmc.LOGDEBUG
