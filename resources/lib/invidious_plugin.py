@@ -57,7 +57,6 @@ class SearchHistory:
 class InvidiousPlugin:
 
     INSTANCESURL = "https://api.invidious.io/instances.json?sort_by=type,health"
-    TMP_PATH = "special://temp/plugin.video.invidious/"
 
     addon_handle: int
     api_client: invidious_api.InvidiousAPIClient
@@ -69,6 +68,7 @@ class InvidiousPlugin:
     show_instance_popular: bool
     show_instance_trending: bool
     download_subs: bool
+    tmp_path: str
 
     def __init__(self, base_url: str, addon_handle: int, args: dict[str, Any]):
         self.base_url = base_url
@@ -76,6 +76,7 @@ class InvidiousPlugin:
         self.addon = xbmcaddon.Addon()
         self.args = args
         path = xbmcvfs.translatePath(self.addon.getAddonInfo("profile"))
+        self.tmp_path = f"special://temp/{self.addon.getAddonInfo('id')}/"
         settings = self.addon.getSettings()
         self.download_subs = settings.getBool("download_subs")
         self.disable_dash = settings.getBool("disable_dash")
@@ -84,7 +85,7 @@ class InvidiousPlugin:
         self.auto_instance = settings.getBool("auto_instance")
 
         if self.download_subs:
-            xbmcvfs.mkdirs(f"{InvidiousPlugin.TMP_PATH}/subs")
+            xbmcvfs.mkdirs(f"{self.tmp_path}/subs")
 
         if settings.getBool("search_history"):
             self.search_history = SearchHistory(path + "search-history.json", 20)
@@ -201,6 +202,14 @@ class InvidiousPlugin:
                             "duration": result.duration,
                         }
                     )
+                    list_item.addContextMenuItems(
+                        [
+                            (
+                                self.addon.getLocalizedString(30024),
+                                f"RunAddon({self.addon.getAddonInfo('id')}, action=view_channel, channel_id={result.channel_id})",
+                            )
+                        ]
+                    )
 
                     url = self.build_url("play_video", video_id=result.id)
                     self.add_directory_item(url=url, listitem=list_item)
@@ -262,7 +271,6 @@ class InvidiousPlugin:
         self.display_search_results(videos)
 
     def play_video(self, id):
-        # TODO: add support for adaptive streaming
         video_info = self.api_client.fetch_video_information(id)
 
         xbmc.log(f"invidious playing video {video_info}.", xbmc.LOGDEBUG)
@@ -315,7 +323,7 @@ class InvidiousPlugin:
                 sub_files = []
                 for caption in video_info.captions:
                     filename = (
-                        f"{self.TMP_PATH}/subs/{video_info.id}.{caption.label}.vtt"
+                        f"{self.tmp_path}/subs/{video_info.id}.{caption.label}.vtt"
                     )
                     with xbmcvfs.File(filename, "w") as f:
                         f.write(self.api_client.fetch_subtitles(caption))
