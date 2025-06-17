@@ -45,6 +45,7 @@ PlaylistSearchResult = namedtuple(
         "channel_id",
         "verified",
         "video_count",
+        "isListed"
     ],
 )
 
@@ -187,6 +188,7 @@ class InvidiousAPIClient:
                     item["authorId"],
                     item["authorVerified"],
                     item["videoCount"],
+                    False,
                 )
             else:
                 xbmc.log(
@@ -218,6 +220,14 @@ class InvidiousAPIClient:
         response = self._make_get_request(f"playlists/{playlist_id}")
 
         return self._parse_list_response(response)
+
+    def fetch_user_playlist_list(self, playlist_id):
+        if not self.authenticated:
+            self._login()
+        response = self._make_get_request(f"auth/playlists/{playlist_id}")
+
+        return self._parse_list_response(response)
+
 
     def fetch_special_list(self, special_list_name: str):
         response = self._make_get_request(special_list_name)
@@ -277,6 +287,7 @@ class InvidiousAPIClient:
                 playlist["authorId"],
                 "",
                 playlist["videoCount"],
+                playlist["isListed"]
             )
 
     def subscribe(self, channel_id: str) -> None:

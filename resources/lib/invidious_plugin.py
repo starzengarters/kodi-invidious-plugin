@@ -192,8 +192,14 @@ class InvidiousPlugin:
                 )
                 self.add_directory_item(url=url, listitem=list_item, isFolder=True)
             elif isinstance(result, invidious_api.PlaylistSearchResult):
-                url = self.build_url("view_playlist", playlist_id=result.id)
-                self.add_directory_item(url=url, listitem=list_item, isFolder=True)
+                if result.isListed:
+                   url = self.build_url("view_playlist", playlist_id=result.id)
+                   xbmc.log(f"playlist url: {url}", xbmc.LOGWARNING)
+                   self.add_directory_item(url=url, listitem=list_item, isFolder=True)
+                else:
+                    url = self.build_url("view_user_playlist", playlist_id=result.id)
+                    xbmc.log(f"playlist url: {url}", xbmc.LOGWARNING)
+                    self.add_directory_item(url=url, listitem=list_item, isFolder=True)
 
         self.end_of_directory()
 
@@ -229,6 +235,11 @@ class InvidiousPlugin:
         videos = self.api_client.fetch_playlist_list(playlist_id)
 
         self.display_search_results(videos)
+
+    def display_user_playlist_list(self, playlist_id):
+        videos = self.api_client.fetch_user_playlist_list(playlist_id)
+        self.display_search_results(videos)
+
 
     def play_video(self, id):
         # TODO: add support for adaptive streaming
@@ -381,6 +392,10 @@ class InvidiousPlugin:
 
             elif action == "view_playlist":
                 self.display_playlist_list(self.args["playlist_id"][0])
+
+            elif action == "view_user_playlist":
+                self.display_user_playlist_list(self.args["playlist_id"][0])
+
 
             elif action == "user_feed":
                 self.display_search_results(self.api_client.fetch_feed())
