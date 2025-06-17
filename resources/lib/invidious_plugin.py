@@ -192,14 +192,10 @@ class InvidiousPlugin:
                 )
                 self.add_directory_item(url=url, listitem=list_item, isFolder=True)
             elif isinstance(result, invidious_api.PlaylistSearchResult):
-                if result.isListed:
-                   url = self.build_url("view_playlist", playlist_id=result.id)
-                   xbmc.log(f"playlist url: {url}", xbmc.LOGWARNING)
-                   self.add_directory_item(url=url, listitem=list_item, isFolder=True)
-                else:
+                url = self.build_url("view_playlist", playlist_id=result.id)
+                if not result.isListed:
                     url = self.build_url("view_user_playlist", playlist_id=result.id)
-                    xbmc.log(f"playlist url: {url}", xbmc.LOGWARNING)
-                    self.add_directory_item(url=url, listitem=list_item, isFolder=True)
+                self.add_directory_item(url=url, listitem=list_item, isFolder=True)
 
         self.end_of_directory()
 
