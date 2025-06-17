@@ -262,6 +262,23 @@ class InvidiousAPIClient:
             data["subCount"],
         )
 
+    def fetch_playlists(self) -> Iterator[PlaylistSearchResult]:
+        if not self.authenticated:
+            self._login()
+        playlists_response = self._make_get_request("auth/playlists")
+        data = playlists_response.json()
+        for playlist in data:
+            yield PlaylistSearchResult(
+                "playlist",
+                playlist["playlistId"],
+                "",
+                playlist["title"],
+                playlist["author"],
+                playlist["authorId"],
+                "",
+                playlist["videoCount"],
+            )
+
     def subscribe(self, channel_id: str) -> None:
         if not self.authenticated:
             self._login()

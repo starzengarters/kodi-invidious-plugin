@@ -310,6 +310,7 @@ class InvidiousPlugin:
         if self.api_client.username:
             add_list_item("Feed", "user_feed")
             add_list_item("Subscriptions", "user_subscriptions")
+            add_list_item("My Playlists", "user_playlists")
 
         if self.show_instance_popular:
             add_list_item(self.addon.getLocalizedString(30020), "popular")
@@ -386,7 +387,8 @@ class InvidiousPlugin:
 
             elif action == "user_subscriptions":
                 self.display_search_results(self.api_client.fetch_subscribed_channels())
-
+            elif action == "user_playlists":
+                self.display_search_results(self.api_client.fetch_playlists())
             elif action in ("trending", "popular"):
                 self.display_search_results(self.api_client.fetch_special_list(action))
 
