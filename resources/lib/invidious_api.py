@@ -45,7 +45,8 @@ PlaylistSearchResult = namedtuple(
         "channel_id",
         "verified",
         "video_count",
-        "isListed"
+        "isListed",
+        "updated"
     ],
 )
 
@@ -189,6 +190,7 @@ class InvidiousAPIClient:
                     item["authorVerified"],
                     item["videoCount"],
                     False,
+                    item["updated"]
                 )
             else:
                 xbmc.log(
@@ -277,6 +279,10 @@ class InvidiousAPIClient:
             self._login()
         playlists_response = self._make_get_request("auth/playlists")
         data = playlists_response.json()
+        # sort data.
+        data.sort(key=lambda x: x['updated'])
+        data.reverse()
+
         for playlist in data:
             yield PlaylistSearchResult(
                 "playlist",
@@ -287,7 +293,8 @@ class InvidiousAPIClient:
                 playlist["authorId"],
                 "",
                 playlist["videoCount"],
-                playlist["isListed"]
+                playlist["isListed"],
+                playlist["updated"]
             )
 
     def subscribe(self, channel_id: str) -> None:
