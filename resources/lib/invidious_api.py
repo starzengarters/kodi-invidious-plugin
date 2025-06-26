@@ -14,6 +14,7 @@ VideoSearchResult = namedtuple(
         "thumbnail_url",
         "heading",
         "author",
+        "authorId",
         "description",
         "view_count",
         "published",
@@ -156,6 +157,7 @@ class InvidiousAPIClient:
                     thumbnail_url,
                     item["title"],
                     item["author"],
+                    item["authorId"],
                     item.get("description", self.addon.getLocalizedString(30000)),
                     item.get("viewCount", -1),  # Missing for playlists.
                     item.get("published", 0),  # Missing for playlists.

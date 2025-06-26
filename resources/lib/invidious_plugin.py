@@ -179,6 +179,14 @@ class InvidiousPlugin:
                     }
                 )
 
+                # custom context menu options.
+                channelUrl = self.build_url("view_channel", channel_id=result.authorId)
+                context_menu = [
+                    (f'Go To {result.author}', f'Container.Update({channelUrl})')
+                ]
+                list_item.addContextMenuItems(context_menu)
+
+                # default opperation.
                 url = self.build_url("play_video", video_id=result.id)
                 self.add_directory_item(url=url, listitem=list_item)
             elif isinstance(result, invidious_api.ChannelSearchResult):
