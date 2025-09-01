@@ -205,6 +205,16 @@ class InvidiousPlugin:
                     url = self.build_url("view_user_playlist", playlist_id=result.id)
                 self.add_directory_item(url=url, listitem=list_item, isFolder=True)
 
+        # Add a next page item
+        
+        actionsWithNextPage = ["user_feed", "view_playlist", "view_cannel"]
+        action = self.args.get("action", [None])[0]
+        nextPage = int(self.args.get("page", ['1'])[0]) + 1
+        xbmc.log(f"action: {action}  nextPage: {nextPage}", xbmc.LOGINFO)
+        if(action in actionsWithNextPage):
+            npUrl = self.build_url(action, page=nextPage)
+            list_item = xbmcgui.ListItem(f"Page {nextPage}")
+            self.add_directory_item(url=npUrl, listitem=list_item, isFolder=True)
         self.end_of_directory()
 
     def display_new_search(self):
@@ -402,7 +412,8 @@ class InvidiousPlugin:
 
 
             elif action == "user_feed":
-                self.display_search_results(self.api_client.fetch_feed())
+                page = int(self.args.get("page", ['1'])[0])
+                self.display_search_results(self.api_client.fetch_feed(page))
 
             elif action == "user_subscriptions":
                 self.display_search_results(self.api_client.fetch_subscribed_channels())

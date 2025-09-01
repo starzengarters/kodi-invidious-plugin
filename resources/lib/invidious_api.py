@@ -239,10 +239,11 @@ class InvidiousAPIClient:
 
         return self._parse_list_response(response)
 
-    def fetch_feed(self) -> Iterator[VideoSearchResult]:
+    def fetch_feed(self, page: int = 1) -> Iterator[VideoSearchResult]:
         if not self.authenticated:
             self._login()
-        response = self._make_get_request("auth/feed")
+        xbmc.log(f"Passed Page: {page}", xbmc.LOGINFO)
+        response = self._make_get_request(f"auth/feed?page={page}")
 
         for result in self._parse_list_response(response):
             if isinstance(result, VideoSearchResult):
