@@ -137,11 +137,10 @@ class InvidiousAPIClient:
             raise StopIteration()
         data = response.json()
 
-        # Extract and stash the continuation token from the response.
+        # Extract the continuation token from the response if present.
         continuation = None
         if "continuation" in data:
             continuation = data["continuation"]
-            xbmc.log(f"Got continuation {continuation}", xbmc.LOGINFO)
 
         # If a channel or playlist is opened, the videos are packaged
         # in a dict entry "videos".
@@ -234,12 +233,10 @@ class InvidiousAPIClient:
         return response.json()
 
     def fetch_channel_list(self, channel_id, continuation: str = None):
-        xbmc.log(f"Channel continuation: {continuation}", xbmc.LOGINFO)
         url =f"channels/{channel_id}/videos"
         if continuation:
             url = f"{url}?continuation={continuation}"
         response = self._make_get_request(url)
-        # xbmc.log(f"Coninuation: {response["continuation"]}", xbmc.LOGINFO)
         return self._parse_list_response(response)
 
     def fetch_playlist_list(self, playlist_id):
@@ -263,7 +260,6 @@ class InvidiousAPIClient:
     def fetch_feed(self, page: int = 1) -> Iterator[VideoSearchResult]:
         if not self.authenticated:
             self._login()
-        xbmc.log(f"Passed Page: {page}", xbmc.LOGINFO)
         response = self._make_get_request(f"auth/feed?page={page}")
 
         for result in self._parse_list_response(response):
