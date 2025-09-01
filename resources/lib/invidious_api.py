@@ -137,7 +137,7 @@ class InvidiousAPIClient:
             # Playlist videos do not have the 'type' attribute
             if "type" not in item or item["type"] in ["video", "shortVideo"]:
                 # Skip videos with negative duration.
-                # shorts show as 0, so allow that.
+                # shorts and live show as 0, so allow that.
                 if not item["lengthSeconds"] >= 0:
                     continue
                 for thumb in item["videoThumbnails"]:
