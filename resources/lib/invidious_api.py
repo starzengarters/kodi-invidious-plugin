@@ -22,6 +22,15 @@ VideoSearchResult = namedtuple(
     ],
 )
 
+VideoSearchContinuation = namedtuple(
+    "VideoSearchContinuation",
+    [
+        "type",
+        "heading",
+        "continuation",
+    ],
+)
+
 ChannelSearchResult = namedtuple(
     "ChannelSearchResult",
     [
@@ -52,7 +61,7 @@ PlaylistSearchResult = namedtuple(
 )
 
 InvidiousApiResponseType = Union[
-    VideoSearchResult, ChannelSearchResult, PlaylistSearchResult
+    VideoSearchResult, ChannelSearchResult, PlaylistSearchResult, VideoSearchContinuation
 ]
 
 
@@ -128,6 +137,12 @@ class InvidiousAPIClient:
             raise StopIteration()
         data = response.json()
 
+        # Extract and stash the continuation token from the response.
+        continuation = None
+        if "continuation" in data:
+            continuation = data["continuation"]
+            xbmc.log(f"Got continuation {continuation}", xbmc.LOGINFO)
+
         # If a channel or playlist is opened, the videos are packaged
         # in a dict entry "videos".
         if "videos" in data:
@@ -200,6 +215,8 @@ class InvidiousAPIClient:
                     f'invidious received search result item with unknown response type {item["type"]}.',
                     xbmc.LOGWARNING,
                 )
+        if continuation:
+            yield VideoSearchContinuation("continuation", "Next Page", continuation)
 
     def search(self, *terms):
         params = {
@@ -216,9 +233,13 @@ class InvidiousAPIClient:
 
         return response.json()
 
-    def fetch_channel_list(self, channel_id):
-        response = self._make_get_request(f"channels/{channel_id}/videos")
-
+    def fetch_channel_list(self, channel_id, continuation: str = None):
+        xbmc.log(f"Channel continuation: {continuation}", xbmc.LOGINFO)
+        url =f"channels/{channel_id}/videos"
+        if continuation:
+            url = f"{url}?continuation={continuation}"
+        response = self._make_get_request(url)
+        # xbmc.log(f"Coninuation: {response["continuation"]}", xbmc.LOGINFO)
         return self._parse_list_response(response)
 
     def fetch_playlist_list(self, playlist_id):

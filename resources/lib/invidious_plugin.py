@@ -147,8 +147,14 @@ class InvidiousPlugin:
         self, results: Iterator[invidious_api.InvidiousApiResponseType]
     ):
         # FIXME Add pagination support?
+        continuationToken = None
         for result in results:
-            if result.type not in ["video", "channel", "playlist"]:
+            if result.type == "continuation":
+                xbmc.log("\tDing!", xbmc.LOGINFO)
+                continuationToken = result.continuation
+                continue
+
+            if result.type not in ["video", "channel", "playlist", "continuation"]:
                 raise RuntimeError("unknown result type " + result.type)
 
             list_item = xbmcgui.ListItem(result.heading)
@@ -207,12 +213,13 @@ class InvidiousPlugin:
 
         # Add a next page item
         
-        actionsWithNextPage = ["user_feed", "view_playlist", "view_cannel"]
+        actionsWithNextPage = ["user_feed", "view_playlist", "view_channel"]
         action = self.args.get("action", [None])[0]
+        channel_id = self.args.get("channel_id", [None])[0]
         nextPage = self.get_page_argument() + 1
-        xbmc.log(f"action: {action}  nextPage: {nextPage}", xbmc.LOGINFO)
+        xbmc.log(f"action: {action}  nextPage: {nextPage}  channel_id: {channel_id}  continuation: {continuationToken[:8]}", xbmc.LOGINFO)
         if(action in actionsWithNextPage):
-            npUrl = self.build_url(action, page=nextPage)
+            npUrl = self.build_url(action, page=nextPage, channel_id=channel_id, continuation=continuationToken)
             list_item = xbmcgui.ListItem(f"Page {nextPage}")
             self.add_directory_item(url=npUrl, listitem=list_item, isFolder=True)
         self.end_of_directory()
@@ -243,8 +250,8 @@ class InvidiousPlugin:
         # assemble menu with the results
         self.display_search_results(results)
 
-    def display_channel_list(self, channel_id):
-        videos = self.api_client.fetch_channel_list(channel_id)
+    def display_channel_list(self, channel_id, continuation):
+        videos = self.api_client.fetch_channel_list(channel_id, continuation)
 
         self.display_search_results(videos)
 
@@ -405,7 +412,9 @@ class InvidiousPlugin:
                 self.play_video(self.args["video_id"][0])
 
             elif action == "view_channel":
-                self.display_channel_list(self.args["channel_id"][0])
+                # provide `continuation` parameter, too.
+                continuation = self.args.get("continuation", [None])[0]
+                self.display_channel_list(self.args["channel_id"][0], continuation)
 
             elif action == "view_playlist":
                 self.display_playlist_list(self.args["playlist_id"][0])
