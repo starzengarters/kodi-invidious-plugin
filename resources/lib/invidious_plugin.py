@@ -212,16 +212,17 @@ class InvidiousPlugin:
                 self.add_directory_item(url=url, listitem=list_item, isFolder=True)
 
         # Add a next page item
-        actionsWithNextPage = ["user_feed", "view_playlist", "view_channel"]
+        actionsWithNextPage = ["user_feed", "view_playlist", "view_channel", "view_user_playlist"]
         action = self.args.get("action", [None])[0]
-        
+
         # additional attributes needed for various views that use pagination,
         # but do not use a continuation token.
         channel_id = self.args.get("channel_id", [None])[0]
+        playlist_id = self.args.get("playlist_id", [None])[0]
         nextPage = self.get_page_argument() + 1
 
         if(action in actionsWithNextPage):
-            npUrl = self.build_url(action, page=nextPage, channel_id=channel_id, continuation=continuationToken)
+            npUrl = self.build_url(action, page=nextPage, channel_id=channel_id, playlist_id=playlist_id, continuation=continuationToken)
             list_item = xbmcgui.ListItem(f"Page {nextPage}")
             self.add_directory_item(url=npUrl, listitem=list_item, isFolder=True)
         self.end_of_directory()
@@ -257,13 +258,13 @@ class InvidiousPlugin:
 
         self.display_search_results(videos)
 
-    def display_playlist_list(self, playlist_id):
-        videos = self.api_client.fetch_playlist_list(playlist_id)
+    def display_playlist_list(self, playlist_id, page:int=1):
+        videos = self.api_client.fetch_playlist_list(playlist_id, page)
 
         self.display_search_results(videos)
 
-    def display_user_playlist_list(self, playlist_id):
-        videos = self.api_client.fetch_user_playlist_list(playlist_id)
+    def display_user_playlist_list(self, playlist_id, page:int=1):
+        videos = self.api_client.fetch_user_playlist_list(playlist_id, page)
         self.display_search_results(videos)
 
 
@@ -418,10 +419,12 @@ class InvidiousPlugin:
                 self.display_channel_list(self.args["channel_id"][0], continuation)
 
             elif action == "view_playlist":
-                self.display_playlist_list(self.args["playlist_id"][0])
+                page = self.get_page_argument()
+                self.display_playlist_list(self.args["playlist_id"][0], page)
 
             elif action == "view_user_playlist":
-                self.display_user_playlist_list(self.args["playlist_id"][0])
+                page = self.get_page_argument()
+                self.display_user_playlist_list(self.args["playlist_id"][0], page)
 
 
             elif action == "user_feed":

@@ -239,15 +239,15 @@ class InvidiousAPIClient:
         response = self._make_get_request(url)
         return self._parse_list_response(response)
 
-    def fetch_playlist_list(self, playlist_id):
-        response = self._make_get_request(f"playlists/{playlist_id}")
+    def fetch_playlist_list(self, playlist_id, page: int = 1):
+        response = self._make_get_request(f"playlists/{playlist_id}?page={page}")
 
         return self._parse_list_response(response)
 
-    def fetch_user_playlist_list(self, playlist_id):
+    def fetch_user_playlist_list(self, playlist_id, page:int=1):
         if not self.authenticated:
             self._login()
-        response = self._make_get_request(f"auth/playlists/{playlist_id}")
+        response = self._make_get_request(f"auth/playlists/{playlist_id}?page={page}")
 
         return self._parse_list_response(response)
 
