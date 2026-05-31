@@ -278,7 +278,7 @@ class InvidiousPlugin:
                 page = self.get_page_argument()
                 self.display_user_playlist_list(self.args["playlist_id"][0], page)
             elif action == "user_feed":
-                self.display_search_results(self.api_client.fetch_feed())
+                self.display_search_results(self.api_client.fetch_feed(self.get_page_argument()))
             elif action == "user_subscriptions":
                 self.display_search_results(self.api_client.fetch_subscribed_channels())
             elif action == "user_playlists":
