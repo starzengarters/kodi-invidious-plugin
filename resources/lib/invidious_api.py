@@ -160,8 +160,10 @@ class InvidiousAPIClient:
             if "type" not in item or item["type"] in ["video", "shortVideo"]:
 
                 # Skip videos with no or negative duration.
-                if not item["lengthSeconds"] > 0:
-                    continue
+                # Invidious API updates have caused issues where valid items sometimes
+                # return 0 duration, temporarily comment out to ensure items appear.
+                # if not item["lengthSeconds"] > 0:
+                #     continue
                 for thumb in item["videoThumbnails"]:
 
                     # high appears to be ~480x360, which is a
