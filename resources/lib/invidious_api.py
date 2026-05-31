@@ -66,8 +66,6 @@ PlaylistSearchResult = namedtuple(
 
 InvidiousApiResponseType = Union[
     VideoSearchResult, ChannelSearchResult, PlaylistSearchResult, VideoSearchContinuation
-
-    VideoSearchResult, ChannelSearchResult, PlaylistSearchResult
 ]
 
 
@@ -76,11 +74,6 @@ class InvidiousAPIClient:
     session: requests.Session
     addon: xbmcaddon.Addon
     authenticated: bool
-    username: str | None
-    password: str | None
-
-    def __init__(self, instance_url: str, auth: None | dict[str, str] = None):
-
     username: Optional[str]
     password: Optional[str]
 
@@ -115,17 +108,6 @@ class InvidiousAPIClient:
 
         if login_response.ok:
             self.authenticated = True
-
-    def _make_get_request(
-        self, path: str, params: None | dict[str, str] = None
-    ) -> requests.Response:
-        assembled_url = self.base_url + path
-
-        xbmc.log(
-            f"invidious === request {assembled_url} with {params} started ===",
-            xbmc.LOGDEBUG,
-        )
-
 
     def _make_get_request(
         self, path: str, params: Optional[dict[str, str]] = None
@@ -268,7 +250,10 @@ class InvidiousAPIClient:
 
     def fetch_playlist_list(self, playlist_id, page: int = 1):
         response = self._make_get_request(f"playlists/{playlist_id}?page={page}")
+        return self._parse_list_response(response)
 
+    def fetch_special_list(self, special_list_name: str):
+        response = self._make_get_request(special_list_name)
         return self._parse_list_response(response)
 
     def fetch_user_playlist_list(self, playlist_id, page:int=1):
@@ -284,33 +269,11 @@ class InvidiousAPIClient:
 
         return self._parse_list_response(response)
 
-    def fetch_feed(self, page: int = 1) -> Iterator[VideoSearchResult]:
+    def fetch_feed(self, page: int = 1) -> Iterator[InvidiousApiResponseType]:
         if not self.authenticated:
             self._login()
         response = self._make_get_request(f"auth/feed?page={page}")
-
-        response = self._make_get_request(f"channels/{channel_id}/videos")
-
         return self._parse_list_response(response)
-
-    def fetch_playlist_list(self, playlist_id):
-        response = self._make_get_request(f"playlists/{playlist_id}")
-
-        return self._parse_list_response(response)
-
-    def fetch_special_list(self, special_list_name: str):
-        response = self._make_get_request(special_list_name)
-
-        return self._parse_list_response(response)
-
-    def fetch_feed(self) -> Iterator[VideoSearchResult]:
-        if not self.authenticated:
-            self._login()
-        response = self._make_get_request("auth/feed")
-
-        for result in self._parse_list_response(response):
-            if isinstance(result, VideoSearchResult):
-                yield result
 
     def fetch_subscribed_channels(self) -> Iterator[ChannelSearchResult]:
         if not self.authenticated:

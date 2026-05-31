@@ -112,8 +112,12 @@ class InvidiousPlugin:
 
     def display_search_results(self, results: Iterator[invidious_api.InvidiousApiResponseType]):
         for result in results:
-            if result.type not in ["video", "channel", "playlist"]:
+            if result.type not in ["video", "channel", "playlist", "continuation"]:
                 raise RuntimeError("unknown result type " + result.type)
+            if result.type == "continuation":
+                continue
+
+
             list_item = xbmcgui.ListItem(result.heading)
             list_item.setArt({"thumb": result.thumbnail_url})
             list_item.setProperty("IsPlayable", "true")
@@ -178,11 +182,11 @@ class InvidiousPlugin:
         videos = self.api_client.fetch_channel_list(channel_id)
         self.display_search_results(videos)
 
-    def display_playlist_list(self, playlist_id, page:int=1):
+    def display_playlist_list(self, playlist_id, page: int = 1):
         videos = self.api_client.fetch_playlist_list(playlist_id, page)
         self.display_search_results(videos)
 
-    def display_user_playlist_list(self, playlist_id, page:int=1):
+    def display_user_playlist_list(self, playlist_id, page: int = 1):
         videos = self.api_client.fetch_user_playlist_list(playlist_id, page)
         self.display_search_results(videos)
 
