@@ -253,8 +253,8 @@ class InvidiousPlugin:
         # assemble menu with the results
         self.display_search_results(results)
 
-    def display_channel_list(self, channel_id, continuation):
-        videos = self.api_client.fetch_channel_list(channel_id, continuation)
+    def display_channel_list(self, channel_id):
+        videos = self.api_client.fetch_channel_list(channel_id)
 
         self.display_search_results(videos)
 
@@ -415,8 +415,7 @@ class InvidiousPlugin:
                 self.play_video(self.args["video_id"][0])
 
             elif action == "view_channel":
-                continuation = self.args.get("continuation", [None])[0]
-                self.display_channel_list(self.args["channel_id"][0], continuation)
+                self.display_channel_list(self.args["channel_id"][0])
 
             elif action == "view_playlist":
                 page = self.get_page_argument()

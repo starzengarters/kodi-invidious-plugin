@@ -214,7 +214,7 @@ class InvidiousAPIClient:
                     f'invidious received search result item with unknown response type {item["type"]}.',
                     xbmc.LOGWARNING,
                 )
-        if continuation:
+
             yield VideoSearchContinuation("continuation", "Next Page", continuation)
 
     def search(self, *terms):
@@ -232,11 +232,11 @@ class InvidiousAPIClient:
 
         return response.json()
 
-    def fetch_channel_list(self, channel_id, continuation: str = None):
-        url =f"channels/{channel_id}/videos"
-        if continuation:
-            url = f"{url}?continuation={continuation}"
-        response = self._make_get_request(url)
+    def fetch_channel_list(self, channel_id):
+
+
+
+        response = self._make_get_request(f"channels/{channel_id}/videos")
         return self._parse_list_response(response)
 
     def fetch_playlist_list(self, playlist_id, page: int = 1):
