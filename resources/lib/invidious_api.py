@@ -2,6 +2,8 @@ import time
 from collections import namedtuple
 from typing import Iterator, Union
 
+from typing import Iterator, Union, Optional
+
 import requests
 import xbmc
 import xbmcaddon
@@ -31,6 +33,7 @@ VideoSearchContinuation = namedtuple(
     ],
 )
 
+
 ChannelSearchResult = namedtuple(
     "ChannelSearchResult",
     [
@@ -57,11 +60,14 @@ PlaylistSearchResult = namedtuple(
         "video_count",
         "isListed",
         "updated"
+
     ],
 )
 
 InvidiousApiResponseType = Union[
     VideoSearchResult, ChannelSearchResult, PlaylistSearchResult, VideoSearchContinuation
+
+    VideoSearchResult, ChannelSearchResult, PlaylistSearchResult
 ]
 
 
@@ -74,6 +80,11 @@ class InvidiousAPIClient:
     password: str | None
 
     def __init__(self, instance_url: str, auth: None | dict[str, str] = None):
+
+    username: Optional[str]
+    password: Optional[str]
+
+    def __init__(self, instance_url: str, auth: Optional[dict[str, str]] = None):
         self.instance_url = instance_url.rstrip("/")
         self.session = requests.Session()
         self.authenticated = False
@@ -82,6 +93,7 @@ class InvidiousAPIClient:
             self.username = auth["username"]
             self.password = auth["password"]
         self.addon = xbmcaddon.Addon()
+        self.local = ("true" == self.addon.getSetting("local"))
 
     @property
     def base_url(self) -> str:
@@ -110,14 +122,28 @@ class InvidiousAPIClient:
         assembled_url = self.base_url + path
 
         xbmc.log(
-            f"invidious ========== request {assembled_url} with {params} started ==========",
+            f"invidious === request {assembled_url} with {params} started ===",
             xbmc.LOGDEBUG,
         )
+
+
+    def _make_get_request(
+        self, path: str, params: Optional[dict[str, str]] = None
+    ) -> requests.Response:
+        assembled_url = self.base_url + path
+
+        xbmc.log(
+            f"invidious === request {assembled_url} with {params} started ===",
+            xbmc.LOGDEBUG,
+        )
+        if self.local:
+            params["local"] = "true"
+
         start = time.time()
         response = self.session.get(assembled_url, params=params, timeout=5)
         end = time.time()
         xbmc.log(
-            f"invidious ========== request finished in {end - start}s ==========",
+            f"invidious === request finished in {end - start}s ===",
             xbmc.LOGDEBUG,
         )
 
@@ -150,9 +176,9 @@ class InvidiousAPIClient:
         for item in data:
             # Playlist videos do not have the 'type' attribute
             if "type" not in item or item["type"] in ["video", "shortVideo"]:
-                # Skip videos with negative duration.
-                # shorts and live show as 0, so allow that.
-                if not item["lengthSeconds"] >= 0:
+
+                # Skip videos with no or negative duration.
+                if not item["lengthSeconds"] > 0:
                     continue
                 for thumb in item["videoThumbnails"]:
 
@@ -217,6 +243,7 @@ class InvidiousAPIClient:
 
             yield VideoSearchContinuation("continuation", "Next Page", continuation)
 
+
     def search(self, *terms):
         params = {
             "q": " ".join(terms),
@@ -261,6 +288,25 @@ class InvidiousAPIClient:
         if not self.authenticated:
             self._login()
         response = self._make_get_request(f"auth/feed?page={page}")
+
+        response = self._make_get_request(f"channels/{channel_id}/videos")
+
+        return self._parse_list_response(response)
+
+    def fetch_playlist_list(self, playlist_id):
+        response = self._make_get_request(f"playlists/{playlist_id}")
+
+        return self._parse_list_response(response)
+
+    def fetch_special_list(self, special_list_name: str):
+        response = self._make_get_request(special_list_name)
+
+        return self._parse_list_response(response)
+
+    def fetch_feed(self) -> Iterator[VideoSearchResult]:
+        if not self.authenticated:
+            self._login()
+        response = self._make_get_request("auth/feed")
 
         for result in self._parse_list_response(response):
             if isinstance(result, VideoSearchResult):
@@ -317,6 +363,7 @@ class InvidiousAPIClient:
                 playlist["isListed"],
                 playlist["updated"]
             )
+
 
     def subscribe(self, channel_id: str) -> None:
         if not self.authenticated:
